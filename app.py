@@ -20,14 +20,8 @@ model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME)
 model = model.to(device)
 model.eval()
 
-# Language codes mapping
-LANGUAGE_CODES = {
-    'LABEL_0': 'ar', 'LABEL_1': 'bg', 'LABEL_2': 'de', 'LABEL_3': 'el', 
-    'LABEL_4': 'en', 'LABEL_5': 'es', 'LABEL_6': 'fr', 'LABEL_7': 'hi', 
-    'LABEL_8': 'it', 'LABEL_9': 'ja', 'LABEL_10': 'nl', 'LABEL_11': 'pl', 
-    'LABEL_12': 'pt', 'LABEL_13': 'ru', 'LABEL_14': 'sw', 'LABEL_15': 'th', 
-    'LABEL_16': 'tr', 'LABEL_17': 'ur', 'LABEL_18': 'vi', 'LABEL_19': 'zh'
-}
+# Get language mapping directly from model config
+id2lang = model.config.id2label
 
 def predict_language(text):
     try:
@@ -40,16 +34,16 @@ def predict_language(text):
             outputs = model(**inputs)
             probabilities = torch.nn.functional.softmax(outputs.logits, dim=1)
 
-        # Get predictions and confidences
+        # Get top 3 predictions
         values, predictions = torch.topk(probabilities, k=3)
         
         results = []
         entropy = float(-(probabilities * torch.log(probabilities + 1e-9)).sum())
         
         for prob, pred in zip(values[0], predictions[0]):
-            lang_code = LANGUAGE_CODES[f'LABEL_{pred.item()}']
+            lang = id2lang[pred.item()]
             results.append({
-                "language": lang_code,
+                "language": lang,
                 "confidence": float(prob),
                 "entropy": entropy
             })
@@ -86,4 +80,6 @@ def detect_language():
 
 if __name__ == "__main__":
     logging.info(f"Using device: {device}")
-    app.run(host='0.0.0.0', port=10005)
+    logging.info(f"Available languages: {list(id2lang.values())}")
+    port = int(os.getenv("LISTEN_PORT", 10005))
+    app.run(host='0.0.0.0', port)
